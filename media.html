@@ -18,11 +18,14 @@
 <body>
   <button class="screen">共享屏幕</button>
   <button class="capture">开始捕获</button>
+  <button class="stop">停止捕获</button>
   <video id="video" autoplay></video>
   <script>
     const button = document.querySelector(".screen");
     const captureButton = document.querySelector(".capture");
+    const stopButton = document.querySelector(".stop");
     const video = document.getElementById("video");
+
     const displayMediaOptions = {
       video: {
         cursor: "never",
@@ -37,7 +40,17 @@
     // 屏幕捕获
     captureButton.addEventListener("click", async () => {
       video.srcObject = await navigator.mediaDevices.getDisplayMedia(displayMediaOptions);
-      console.dir(video)
+      console.log('mediaStream', video.srcObject)
+    })
+    // 停止捕获
+    stopButton.addEventListener("click", () => {
+      // 可能包含音频轨道、视频轨道或者其他轨道
+      // 停止捕获要清除所有的轨道，所以采用遍历的方法
+      const tracks = video.srcObject.getTracks()
+      console.log("tracks", tracks)
+      tracks.forEach(track => track.stop())
+      video.srcObject = null;
+      console.log("停止捕获")
     })
 
     // 屏幕录制
