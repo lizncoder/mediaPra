@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Document</title>
+</head>
+<style>
+  #video {
+    border: 1px solid #999;
+    width: 98%;
+    max-width: 860px;
+    margin: 10px auto;
+  }
+</style>
+
+<body>
+  <button class="screen">共享屏幕</button>
+  <button class="capture">开始捕获</button>
+  <video id="video" autoplay></video>
+  <script>
+    const button = document.querySelector(".screen");
+    const captureButton = document.querySelector(".capture");
+    const video = document.getElementById("video");
+    const displayMediaOptions = {
+      video: {
+        cursor: "never",
+      },
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        sampleRate: 44100,
+      },
+    };
+
+    // 屏幕捕获
+    captureButton.addEventListener("click", async () => {
+      video.srcObject = await navigator.mediaDevices.getDisplayMedia(displayMediaOptions);
+      console.dir(video)
+    })
+
+    // 屏幕录制
+    button.addEventListener("click", async () => {
+      const stream = await navigator.mediaDevices.getDisplayMedia({
+        video: true,
+      });
+      // console.log(stream)
+      // 是否支持当前格式
+      const mime = MediaRecorder.isTypeSupported("video/webm")
+        ? "video/webm"
+        : "video/webm";
+      const mediaRecorder = new MediaRecorder(stream, { mimeType: mime });
+      // console.log('mimeRecorder:', mimeRecorder)
+
+      const chunks = [];
+      mediaRecorder.addEventListener("dataavailable", (e) => {
+        chunks.push(e.data);
+      });
+      mediaRecorder.addEventListener("stop", () => {
+        const blob = new Blob(chunks, { type: mime });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "screen.webm";
+        a.click();
+        console.log("录制结束");
+      });
+      mediaRecorder.start();
+    });
+  </script>
+</body>
+
+</html>

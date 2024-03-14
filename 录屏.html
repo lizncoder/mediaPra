@@ -1,0 +1,189 @@
+<html lang="zh-cn">
+
+<head>
+    <meta charset="UTF-8">
+    <title>录屏</title>
+</head>
+<style>
+    #video {
+        border: 1px solid #999;
+        width: 98%;
+        max-width: 860px;
+    }
+
+    .error {
+        color: red;
+    }
+
+    .warn {
+        color: orange;
+    }
+
+    .info {
+        color: darkgreen;
+    }
+
+    #log {
+        height: 200px;
+        overflow: auto;
+    }
+</style>
+
+<body>
+
+    <p>此示例向您显示显示的选定部分的内容。单击开始捕获按钮开始</p>
+    <q>点击开始捕获按钮，选择你要捕获的窗口。</q>
+
+    <p>
+        <button id="start">开始捕获</button>&nbsp;
+        <button id="stop">停止捕获</button>
+        <button id="recordBtn">开始录制</button>
+        <button id="downloadBtn">下载</button>
+    </p>
+
+    <video id="video" autoplay></video>
+    <br>
+
+    <strong>Log:</strong>
+    <br>
+    <div id="log"></div>
+    <script>
+
+        const startElem = document.getElementById("start");
+        const stopElem = document.getElementById("stop");
+        const videoElem = document.getElementById("video");
+        const logElem = document.getElementById("log");
+        const recordBtn = document.getElementById("recordBtn");
+        const downloadBtn = document.getElementById("downloadBtn");
+        let captureStream = null;
+        let mediaRecorder = null;
+        let isRecording = false;
+
+        let recordedBlobs = [];
+        // Options for getDisplayMedia()
+        const displayMediaOptions = {
+            video: {
+                cursor: "always"
+            },
+            audio: {
+                echoCancellation: true,
+                noiseSuppression: true,
+                sampleRate: 44100
+            }
+        };
+
+        async function startCapture(displayMediaOptions) {
+            try {
+                videoElem.srcObject = await navigator.mediaDevices.getDisplayMedia(displayMediaOptions);
+                captureStream = videoElem.srcObject
+                console.log(1, captureStream)
+                dumpOptionsInfo();
+                showMsg('用户开始了分享屏幕');
+            } catch (err) {
+                console.error("Error: " + err);
+            }
+        }
+
+        function dumpOptionsInfo() {
+            const videoTrack = videoElem.srcObject.getVideoTracks()[0];
+            console.info("Track settings:");
+            console.info(JSON.stringify(videoTrack.getSettings(), null, 2));
+            console.info("Track constraints:");
+            console.info(JSON.stringify(videoTrack.getConstraints(), null, 2));
+        }
+
+        function stopCapture(evt) {
+            let tracks = videoElem.srcObject.getTracks();
+            tracks.forEach(track => track.stop());
+            videoElem.srcObject = null;
+            showMsg('用户停止了分享屏幕');
+        }
+
+        // Set event listeners for the start and stop buttons 给按钮添加监听事件
+        startElem.addEventListener("click", function (evt) {
+            startCapture(displayMediaOptions);
+        }, false);
+
+        stopElem.addEventListener("click", function (evt) {
+            stopCapture();
+        }, false);
+
+        // 找到支持的格式
+        function getSupportedMimeTypes() {
+            const possibleTypes = [
+                'video/webm;codecs=vp9,opus',
+                'video/webm;codecs=vp8,opus',
+                'video/webm;codecs=h264,opus',
+                'video/mp4;codecs=h264,aac',
+            ];
+            return possibleTypes.filter(mimeType => {
+                return MediaRecorder.isTypeSupported(mimeType);
+            });
+        }
+
+        function startRecording() {
+
+            const mimeType = getSupportedMimeTypes()[0];
+            const options = { mimeType };
+
+            try {
+                mediaRecorder = new MediaRecorder(captureStream, options);
+            } catch (e) {
+                showMsg(`创建MediaRecorder出错: ${JSON.stringify(e)}`);
+                return;
+            }
+            recordBtn.textContent = '停止录制';
+            recordBtn.onclick = stopRecord
+            isRecording = true;
+            downloadBtn.disabled = true;
+            mediaRecorder.onstop = (event) => {
+                showMsg('录制停止了 ');
+            };
+            mediaRecorder.ondataavailable = handleDataAvailable;
+            mediaRecorder.start();
+            showMsg('录制开始 ');
+        }
+
+        function handleDataAvailable(event) {
+            console.log('handleDataAvailable', event);
+            if (event.data && event.data.size > 0) {
+                recordedBlobs.push(event.data);
+            }
+        }
+
+        function stopRecord() {
+            isRecording = false;
+            mediaRecorder.stop();
+            downloadBtn.disabled = false;
+            recordBtn.textContent = "开始录制";
+            recordBtn.onclick = startRecording
+            recordedBlobs = []
+        }
+
+        recordBtn.onclick = startRecording
+
+        downloadBtn.addEventListener('click', () => {
+            const blob = new Blob(recordedBlobs, { type: 'video/webm' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = '录屏_' + new Date().getTime() + '.webm';
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => {
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+            }, 100);
+        });
+
+        function showMsg(msg) {
+            let p = document.createElement("p")
+            p.textContent = msg
+            logElem.appendChild(p)
+            logElem.scrollTop = logElem.scrollHeight
+        }
+    </script>
+</body>
+
+</html>
